@@ -1,4 +1,5 @@
 ﻿using BulkyBook.DataAccess.Data;
+using BulkyBook.DataAccess.Repository.IRepository;
 using BulkyBook.Models;
 using Microsoft.AspNetCore.Mvc;
 
@@ -6,16 +7,16 @@ namespace BulkyBookWeb.Controllers
 {
     public class CategoryController : Controller
     {
-        private readonly ApplicationDbContext _applicationDbContext;
+        private readonly ICategoryRepository _categoryRepository;
 
-        public CategoryController(ApplicationDbContext applicationDbContext)
+        public CategoryController(ICategoryRepository categoryRepository)
         {
-            _applicationDbContext = applicationDbContext;
+            _categoryRepository = categoryRepository;
         }
 
-        public IActionResult Index()
+        public async Task<IActionResult> Index()
         {
-            IEnumerable<Category> categoryList = _applicationDbContext.Categories;
+            var categoryList = await _categoryRepository.GetAllAsync();
             return View(categoryList);
         }
 
@@ -26,7 +27,7 @@ namespace BulkyBookWeb.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult Create(Category category)
+        public async Task<IActionResult> Create(Category category)
         {
             if (category.Name == category.DisplayOrder.ToString())
             {
@@ -34,8 +35,7 @@ namespace BulkyBookWeb.Controllers
             }
             if (ModelState.IsValid)
             {
-                _applicationDbContext.Add(category);
-                _applicationDbContext.SaveChanges();
+                await _categoryRepository.InsertAsync(category);
                 TempData["success"] = "Category created successfully";
 
                 return RedirectToAction("Index");
@@ -44,70 +44,54 @@ namespace BulkyBookWeb.Controllers
             return View(category);
         }
 
-        public IActionResult Edit(int? id)
+        public async Task<IActionResult> Edit(int? id)
         {
             if (id == null || id == 0)
             {
                 return NotFound();
             }
 
-            var categoryFromDb = _applicationDbContext.Categories.Find(id);
-
-            if (categoryFromDb == null)
-            {
-                return NotFound();
-            }
+            var categoryFromDb = await _categoryRepository.GetByIdAsync(x => x.Id == id);
 
             return View(categoryFromDb);
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult Edit(Category obj)
+        public async Task<IActionResult> Edit(Category category)
         {
-            if (obj.Name == obj.DisplayOrder.ToString())
+            if (category.Name == category.DisplayOrder.ToString())
             {
                 ModelState.AddModelError("name", "The DisplayOrder cannot exactly match the Name.");
             }
             if (ModelState.IsValid)
             {
-                _applicationDbContext.Categories.Update(obj);
-                _applicationDbContext.SaveChanges();
+                await _categoryRepository.UpdateAsync(category);
                 TempData["success"] = "Category updated successfully";
                 return RedirectToAction("Index");
             }
-            return View(obj);
+            return View(category);
         }
 
-        public IActionResult Delete(int? id)
+        public async Task<IActionResult> Delete(int? id)
         {
             if (id == null || id == 0)
             {
                 return NotFound();
             }
 
-            var categoryFromDb = _applicationDbContext.Categories.Find(id);
-
-            if (categoryFromDb == null)
-            {
-                return NotFound();
-            }
+            var categoryFromDb = await _categoryRepository.GetByIdAsync(x => x.Id == id);
 
             return View(categoryFromDb);
         }
 
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
-        public IActionResult DeletePOST(int? id)
+        public async Task<IActionResult> DeletePost(int? id)
         {
-            var categoryFromDb = _applicationDbContext.Categories.Find(id);
-            if (categoryFromDb == null)
-            {
-                return NotFound();
-            }
+            var categoryFromDb = await _categoryRepository.GetByIdAsync(x => x.Id == id);
 
-            _applicationDbContext.Categories.Remove(categoryFromDb);
-            _applicationDbContext.SaveChanges();
+            await _categoryRepository.DeleteAsync(categoryFromDb);
             TempData["success"] = "Category deleted successfully";
             return RedirectToAction("Index");
 
