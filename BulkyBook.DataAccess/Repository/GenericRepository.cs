@@ -22,16 +22,35 @@ namespace BulkyBook.DataAccess.Repository
             return query;
         }
 
-        public async Task<TEntity> GetByIdAsync(Expression<Func<TEntity, bool>> predicate)
+        //Include Properties - "Category,CoverType"
+        public async Task<TEntity> GetByIdAsync(Expression<Func<TEntity, bool>> predicate, string? includeProperties = null)
         {
-            var query = _applicationDbContext.Set<TEntity>().Where(predicate);
+            var query = _applicationDbContext.Set<TEntity>().Where(predicate).AsNoTracking();
+
+            if (includeProperties != null)
+            {
+                foreach (var includeProperty in includeProperties.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    query = query.Include(includeProperty);
+                }
+            }
+
             return await query.FirstOrDefaultAsync();
         }
 
-        public async Task<IEnumerable<TEntity>> GetAllAsync()
+        public async Task<IEnumerable<TEntity>> GetAllAsync(string? includeProperties = null)
         {
-            var query = await _applicationDbContext.Set<TEntity>().AsNoTracking().ToListAsync();
-            return query;
+            var query = _applicationDbContext.Set<TEntity>().AsNoTracking();
+
+            if (includeProperties != null)
+            {
+                foreach (var includeProperty in includeProperties.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    query = query.Include(includeProperty);
+                }
+            }
+
+            return await query.ToListAsync();
         }
 
         public async Task InsertAsync(TEntity entity)
