@@ -28,8 +28,7 @@ namespace BulkyBookWeb.Areas.Admin.Controllers
 
         public async Task<IActionResult> Index()
         {
-            var productList = await _productRepository.GetAllAsync();
-            return View(productList);
+            return View();
         }
 
 
@@ -123,5 +122,16 @@ namespace BulkyBookWeb.Areas.Admin.Controllers
             return RedirectToAction("Index");
 
         }
+
+        #region API CALLS
+
+        [HttpGet]
+        public async Task<IActionResult> GetAll()
+        {
+            var products = await _productRepository.GetAllAsync();
+            return Json(new { data = products });
+        }
+
+        #endregion
     }
 }
