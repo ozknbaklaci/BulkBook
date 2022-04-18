@@ -116,30 +116,6 @@ namespace BulkyBookWeb.Areas.Admin.Controllers
             return View(productViewModel);
         }
 
-        public async Task<IActionResult> Delete(int? id)
-        {
-            if (id == null || id == 0)
-            {
-                return NotFound();
-            }
-
-            var productFromDb = await _productRepository.GetByIdAsync(x => x.Id == id);
-
-            return View(productFromDb);
-        }
-
-        [HttpPost, ActionName("Delete")]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> DeletePost(int? id)
-        {
-            var productFromDb = await _productRepository.GetByIdAsync(x => x.Id == id);
-
-            await _productRepository.DeleteAsync(productFromDb);
-            TempData["success"] = "Product deleted successfully";
-            return RedirectToAction("Index");
-
-        }
-
         #region API CALLS
 
         [HttpGet]
@@ -147,6 +123,25 @@ namespace BulkyBookWeb.Areas.Admin.Controllers
         {
             var products = await _productRepository.GetAllAsync("Category,CoverType");
             return Json(new { data = products });
+        }
+
+        [HttpDelete]
+        public async Task<IActionResult> Delete(int? id)
+        {
+            var productFromDb = await _productRepository.GetByIdAsync(x => x.Id == id);
+            if (productFromDb == null)
+            {
+                return Json(new { success = false, message = "Error while deleting" });
+            }
+
+            var oldImagePath = Path.Combine(_hostEnvironment.WebRootPath, productFromDb.ImageUrl.TrimStart('\\'));
+            if (System.IO.File.Exists(oldImagePath))
+            {
+                System.IO.File.Delete(oldImagePath);
+            }
+
+            await _productRepository.DeleteAsync(productFromDb);
+            return Json(new { success = true, message = "Product delete successfully" });
         }
 
         #endregion
