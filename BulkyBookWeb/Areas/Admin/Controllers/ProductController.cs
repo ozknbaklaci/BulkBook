@@ -28,6 +28,7 @@ namespace BulkyBookWeb.Areas.Admin.Controllers
 
         public async Task<IActionResult> Index()
         {
+            await Task.CompletedTask;
             return View();
         }
 
@@ -60,11 +61,10 @@ namespace BulkyBookWeb.Areas.Admin.Controllers
             if (id == null || id == 0)
             {
                 //create product
-                //ViewBag.CategoryList = categoryListItems;
-                //ViewData["CoverTypeList"] = coverTypeListItem;
                 return View(productViewModel);
             }
 
+            //update product            
             productViewModel.Product = await _productRepository.GetByIdAsync(x => x.Id == id);
 
             return View(productViewModel);
@@ -72,26 +72,45 @@ namespace BulkyBookWeb.Areas.Admin.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Upsert(ProductViewModel productViewModel, IFormFile file)
+        public async Task<IActionResult> Upsert(ProductViewModel? productViewModel, IFormFile file)
         {
-
             if (ModelState.IsValid)
             {
-                string wwwRootPath = _hostEnvironment.WebRootPath;
+                var wwwRootPath = _hostEnvironment.WebRootPath;
+
                 if (file != null)
                 {
-                    string fileName = Guid.NewGuid() + "_" + file.FileName;
-                    string uploads = Path.Combine(wwwRootPath + @"\images\products");
-                    string filePath = Path.Combine(uploads, fileName);
+                    var fileName = Guid.NewGuid() + "_" + file.FileName;
+                    var uploads = Path.Combine(wwwRootPath + @"\images\products");
+                    var filePath = Path.Combine(uploads, fileName);
+
+                    if (productViewModel?.Product.ImageUrl != null)
+                    {
+                        var oldImagePath = Path.Combine(wwwRootPath, productViewModel.Product.ImageUrl.TrimStart('\\'));
+                        if (System.IO.File.Exists(oldImagePath))
+                        {
+                            System.IO.File.Delete(oldImagePath);
+                        }
+                    }
 
                     await using (var stream = new FileStream(filePath, FileMode.Create))
                     {
                         await file.CopyToAsync(stream);
                     }
-                    productViewModel.Product.ImageUrl = @"\images\products\" + fileName;
+
+                    if (productViewModel != null)
+                        productViewModel.Product.ImageUrl = @"\images\products\" + fileName;
                 }
-                await _productRepository.InsertAsync(productViewModel.Product);
-                TempData["success"] = "Product created successfully";
+
+                if (productViewModel?.Product.Id == 0)
+                {
+                    await _productRepository.InsertAsync(productViewModel.Product);
+                    TempData["success"] = "Product created successfully";
+                    return RedirectToAction("Index");
+                }
+
+                await _productRepository.UpdateAsync(productViewModel.Product);
+                TempData["success"] = "Product updated successfully";
                 return RedirectToAction("Index");
             }
             return View(productViewModel);
