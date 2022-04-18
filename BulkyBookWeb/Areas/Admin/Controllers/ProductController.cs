@@ -60,14 +60,12 @@ namespace BulkyBookWeb.Areas.Admin.Controllers
             if (id == null || id == 0)
             {
                 //create product
-                ViewBag.CategoryList = categoryListItems;
-                ViewData["CoverTypeList"] = coverTypeListItem;
+                //ViewBag.CategoryList = categoryListItems;
+                //ViewData["CoverTypeList"] = coverTypeListItem;
                 return View(productViewModel);
             }
-            else
-            {
-                //update product
-            }
+
+            productViewModel.Product = await _productRepository.GetByIdAsync(x => x.Id == id);
 
             return View(productViewModel);
         }
