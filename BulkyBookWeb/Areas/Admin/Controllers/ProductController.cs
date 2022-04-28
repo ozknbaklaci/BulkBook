@@ -106,11 +106,13 @@ namespace BulkyBookWeb.Areas.Admin.Controllers
                 {
                     await _productRepository.InsertAsync(productViewModel.Product);
                     TempData["success"] = "Product created successfully";
-                    return RedirectToAction("Index");
+                }
+                else
+                {
+                    await _productRepository.UpdateAsync(productViewModel.Product);
+                    TempData["success"] = "Product updated successfully";
                 }
 
-                await _productRepository.UpdateAsync(productViewModel.Product);
-                TempData["success"] = "Product updated successfully";
                 return RedirectToAction("Index");
             }
             return View(productViewModel);
