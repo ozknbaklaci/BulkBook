@@ -1,6 +1,8 @@
 ﻿using System.Diagnostics;
+using System.Security.Claims;
 using BulkyBook.DataAccess.Repository.IRepository;
 using BulkyBook.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BulkyBookWeb.Areas.Customer.Controllers
@@ -10,11 +12,14 @@ namespace BulkyBookWeb.Areas.Customer.Controllers
     {
         private readonly ILogger<HomeController> _logger;
         private readonly IProductRepository _productRepository;
+        private readonly IShoppingCartRepository _shoppingCartRepository;
         public HomeController(ILogger<HomeController> logger,
-            IProductRepository productRepository)
+            IProductRepository productRepository,
+            IShoppingCartRepository shoppingCartRepository)
         {
             _logger = logger;
             _productRepository = productRepository;
+            _shoppingCartRepository = shoppingCartRepository;
         }
 
         public async Task<IActionResult> Index()
@@ -23,15 +28,31 @@ namespace BulkyBookWeb.Areas.Customer.Controllers
             return View(productList);
         }
 
-        public async Task<IActionResult> Details(int id)
+        public async Task<IActionResult> Details(int productId)
         {
             ShoppingCart shoppingCart = new()
             {
-                Product = await _productRepository.GetByIdAsync(x => x.Id == id, "Category,CoverType"),
-                Count = 1
+                Count = 1,
+                ProductId = productId,
+                Product = await _productRepository.GetByIdAsync(x => x.Id == productId, "Category,CoverType")
             };
 
             return View(shoppingCart);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize]
+        public async Task<IActionResult> Details(ShoppingCart shoppingCart)
+        {
+            var claimsIdentity = (ClaimsIdentity)User.Identity;
+            var claim = claimsIdentity?.FindFirst(ClaimTypes.NameIdentifier);
+            shoppingCart.ApplicationUserId = claim.Value;
+
+            await _shoppingCartRepository.InsertAsync(shoppingCart);
+
+
+            return RedirectToAction(nameof(Index));
         }
 
         public IActionResult Privacy()
