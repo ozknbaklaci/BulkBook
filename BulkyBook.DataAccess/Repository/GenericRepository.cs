@@ -38,9 +38,14 @@ namespace BulkyBook.DataAccess.Repository
             return await query.FirstOrDefaultAsync();
         }
 
-        public async Task<IEnumerable<TEntity>> GetAllAsync(string? includeProperties = null)
+        public async Task<IEnumerable<TEntity>> GetAllAsync(Expression<Func<TEntity, bool>>? predicate = null, string? includeProperties = null)
         {
             var query = _applicationDbContext.Set<TEntity>().AsNoTracking();
+
+            if (predicate != null)
+            {
+                query = query.Where(predicate);
+            }
 
             if (includeProperties != null)
             {

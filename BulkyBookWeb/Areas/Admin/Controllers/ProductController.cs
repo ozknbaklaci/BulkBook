@@ -123,7 +123,7 @@ namespace BulkyBookWeb.Areas.Admin.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            var products = await _productRepository.GetAllAsync("Category,CoverType");
+            var products = await _productRepository.GetAllAsync(includeProperties: "Category,CoverType");
             return Json(new { data = products });
         }
 

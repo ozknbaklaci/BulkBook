@@ -24,7 +24,7 @@ namespace BulkyBookWeb.Areas.Customer.Controllers
 
         public async Task<IActionResult> Index()
         {
-            IEnumerable<Product> productList = await _productRepository.GetAllAsync("Category,CoverType");
+            IEnumerable<Product> productList = await _productRepository.GetAllAsync(includeProperties: "Category,CoverType");
             return View(productList);
         }
 
