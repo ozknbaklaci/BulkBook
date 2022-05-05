@@ -25,11 +25,25 @@ namespace BulkyBookWeb.Areas.Customer.Controllers
 
             ShoppingCartViewModel = new ShoppingCartViewModel()
             {
-                ListCarts = await _shoppingCartService.GetAllAsync()
+                ListCart = await _shoppingCartService.GetAllAsync(u => u.ApplicationUserId == claim.Value, "Product")
             };
+            foreach (var cart in ShoppingCartViewModel.ListCart)
+            {
+                cart.Price = GetPriceBasedOnQuantity(cart.Count, cart.Product.Price, cart.Product.Price50, cart.Product.Price100);
+                ShoppingCartViewModel.CartTotal += (cart.Price * cart.Count);
+            }
 
+            return View(ShoppingCartViewModel);
+        }
 
-            return View();
+        private double GetPriceBasedOnQuantity(double quantity, double price, double price50, double price100)
+        {
+            if (quantity < 50)
+            {
+                return price;
+            }
+
+            return quantity < 100 ? price50 : price100;
         }
     }
 }

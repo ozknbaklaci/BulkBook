@@ -2,6 +2,7 @@
 {
     public class ShoppingCartViewModel
     {
-        public IEnumerable<ShoppingCart> ListCarts { get; set; }
+        public IEnumerable<ShoppingCart> ListCart { get; set; }
+        public double CartTotal { get; set; }
     }
 }
