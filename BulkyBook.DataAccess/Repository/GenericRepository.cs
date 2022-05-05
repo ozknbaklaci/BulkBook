@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace BulkyBook.DataAccess.Repository
 {
-    public class GenericRepository<TEntity> : IGenericRepository<TEntity> where TEntity : BaseEntity
+    public class GenericRepository<TEntity> : IGenericRepository<TEntity> where TEntity : class
     {
         private readonly ApplicationDbContext _applicationDbContext;
 
@@ -17,7 +17,7 @@ namespace BulkyBook.DataAccess.Repository
 
         public async Task<TEntity> GetByIdAsync(int id)
         {
-            var query = await _applicationDbContext.Set<TEntity>().AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
+            var query = await _applicationDbContext.Set<TEntity>().FindAsync(id);
 
             return query;
         }
