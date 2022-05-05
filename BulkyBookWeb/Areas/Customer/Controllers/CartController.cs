@@ -36,6 +36,38 @@ namespace BulkyBookWeb.Areas.Customer.Controllers
             return View(ShoppingCartViewModel);
         }
 
+        public async Task<IActionResult> Plus(int cartId)
+        {
+            var cart = await _shoppingCartService.GetByIdAsync(x => x.Id == cartId);
+            _shoppingCartService.IncrementCount(cart, 1);
+            await _shoppingCartService.UpdateAsync(cart);
+
+            return RedirectToAction(nameof(Index));
+        }
+        public async Task<IActionResult> Minus(int cartId)
+        {
+            var cart = await _shoppingCartService.GetByIdAsync(x => x.Id == cartId);
+            if (cart.Count <= 1)
+            {
+                await _shoppingCartService.DeleteAsync(cart);
+            }
+            else
+            {
+                _shoppingCartService.DecrementCount(cart, 1);
+                await _shoppingCartService.UpdateAsync(cart);
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        public async Task<IActionResult> Remove(int cartId)
+        {
+            var cart = await _shoppingCartService.GetByIdAsync(x => x.Id == cartId);
+            await _shoppingCartService.DeleteAsync(cart);
+
+            return RedirectToAction(nameof(Index));
+        }
+
         private double GetPriceBasedOnQuantity(double quantity, double price, double price50, double price100)
         {
             if (quantity < 50)
