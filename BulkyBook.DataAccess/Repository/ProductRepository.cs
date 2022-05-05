@@ -8,7 +8,7 @@ namespace BulkyBook.DataAccess.Repository
     public class ProductRepository : GenericRepository<Product>, IProductRepository
     {
         private readonly ApplicationDbContext _applicationDbContext;
-        public ProductRepository(ApplicationDbContext context, ApplicationDbContext applicationDbContext) : base(context)
+        public ProductRepository(ApplicationDbContext applicationDbContext) : base(applicationDbContext)
         {
             _applicationDbContext = applicationDbContext;
         }
