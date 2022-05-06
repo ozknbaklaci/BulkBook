@@ -5,6 +5,7 @@ using BulkyBook.Models.ViewModels;
 using BulkyBook.Utility;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Stripe.Checkout;
 
 namespace BulkyBookWeb.Areas.Customer.Controllers
 {
@@ -114,10 +115,68 @@ namespace BulkyBookWeb.Areas.Customer.Controllers
                 await _orderDetailService.InsertAsync(orderDetail);
             }
 
-            await _shoppingCartService.DeleteRangeAsync(shoppingCartViewModel.ListCart);
+            #region Stripe Payment
 
-            return RedirectToAction("Index", "Home");
+            var host = "https://localhost:7193";
+            var options = new SessionCreateOptions
+            {
+                LineItems = new List<SessionLineItemOptions>(),
+                Mode = "payment",
+                SuccessUrl = $"{host}/Customer/Cart/OrderConfirmation?id={shoppingCartViewModel.OrderHeader.Id}",
+                CancelUrl = $"{host}/Customer/Cart/Index"
+            };
+
+            foreach (var item in shoppingCartViewModel.ListCart)
+            {
+                var sessionLineItemOptions = new SessionLineItemOptions
+                {
+                    PriceData = new SessionLineItemPriceDataOptions
+                    {
+                        UnitAmount = (long)(item.Price * 100), // 20.00 -> 2000
+                        Currency = "usd",
+                        ProductData = new SessionLineItemPriceDataProductDataOptions
+                        {
+                            Name = item.Product.Title
+                        },
+                    },
+                    Quantity = item.Count
+                };
+
+                options.LineItems.Add(sessionLineItemOptions);
+            }
+
+            var service = new SessionService();
+            Session session = service.Create(options);
+
+            Response.Headers.Add("Location", session.Url);
+            shoppingCartViewModel.OrderHeader.SessionId = session.Id;
+            shoppingCartViewModel.OrderHeader.PaymentIntentId = session.PaymentIntentId;
+
+            await _orderHeaderService.UpdateStripePaymentId(shoppingCartViewModel.OrderHeader.Id, session.Id, session.PaymentIntentId);
+
+            return new StatusCodeResult(303);
+
+            #endregion
         }
+
+        public async Task<IActionResult> OrderConfirmation(int id)
+        {
+            OrderHeader orderHeader = await _orderHeaderService.GetByIdAsync(x => x.Id == id);
+            var service = new SessionService();
+            Session session = service.Get(orderHeader.SessionId);
+
+            //check the stripe status
+            if (session.PaymentStatus.ToLower() == "paid")
+            {
+                await _orderHeaderService.UpdateStatus(id, SD.StatusApproved, SD.PaymentStatusApproved);
+            }
+
+            List<ShoppingCart> shoppingCarts = (await _shoppingCartService.GetAllAsync(x => x.ApplicationUserId == orderHeader.ApplicationUserId)).ToList();
+            await _shoppingCartService.DeleteRangeAsync(shoppingCarts);
+
+            return View(id);
+        }
+
 
         public async Task<IActionResult> Plus(int cartId)
         {

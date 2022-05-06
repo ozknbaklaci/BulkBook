@@ -24,6 +24,18 @@ namespace BulkyBook.DataAccess.Repository
                 {
                     orderFromDb.PaymentStatus = paymentStatus;
                 }
+                _applicationDbContext.Update(orderFromDb);
+                await _applicationDbContext.SaveChangesAsync();
+            }
+        }
+
+        public async Task UpdateStripePaymentId(int id, string sessionId, string paymentIntentId)
+        {
+            var orderFromDb = await _applicationDbContext.OrderHeaders.FirstOrDefaultAsync(x => x.Id == id);
+            if (orderFromDb != null)
+            {
+                orderFromDb.SessionId = sessionId;
+                orderFromDb.PaymentIntentId = paymentIntentId;
 
                 _applicationDbContext.Update(orderFromDb);
                 await _applicationDbContext.SaveChangesAsync();
