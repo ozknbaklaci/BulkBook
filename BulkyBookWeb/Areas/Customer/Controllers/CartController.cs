@@ -1,5 +1,6 @@
 ﻿using System.Security.Claims;
 using BulkyBook.DataAccess.Repository.IRepository;
+using BulkyBook.Models;
 using BulkyBook.Models.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,11 +12,14 @@ namespace BulkyBookWeb.Areas.Customer.Controllers
     public class CartController : Controller
     {
         private readonly IShoppingCartRepository _shoppingCartService;
+        private readonly IApplicationUserRepository _userService;
         public ShoppingCartViewModel ShoppingCartViewModel { get; set; }
 
-        public CartController(IShoppingCartRepository shoppingCartService)
+        public CartController(IShoppingCartRepository shoppingCartService,
+            IApplicationUserRepository userService)
         {
             _shoppingCartService = shoppingCartService;
+            _userService = userService;
         }
 
         public async Task<IActionResult> Index()
@@ -25,12 +29,13 @@ namespace BulkyBookWeb.Areas.Customer.Controllers
 
             ShoppingCartViewModel = new ShoppingCartViewModel()
             {
-                ListCart = await _shoppingCartService.GetAllAsync(u => u.ApplicationUserId == claim.Value, "Product")
+                ListCart = await _shoppingCartService.GetAllAsync(u => u.ApplicationUserId == claim.Value, "Product"),
+                OrderHeader = new OrderHeader()
             };
             foreach (var cart in ShoppingCartViewModel.ListCart)
             {
                 cart.Price = GetPriceBasedOnQuantity(cart.Count, cart.Product.Price, cart.Product.Price50, cart.Product.Price100);
-                ShoppingCartViewModel.CartTotal += (cart.Price * cart.Count);
+                ShoppingCartViewModel.OrderHeader.OrderTotal += (cart.Price * cart.Count);
             }
 
             return View(ShoppingCartViewModel);
@@ -38,20 +43,32 @@ namespace BulkyBookWeb.Areas.Customer.Controllers
 
         public async Task<IActionResult> Summary()
         {
-            //var claimsIdentity = (ClaimsIdentity)User.Identity;
-            //var claim = claimsIdentity?.FindFirst(ClaimTypes.NameIdentifier);
+            var claimsIdentity = (ClaimsIdentity)User.Identity;
+            var claim = claimsIdentity?.FindFirst(ClaimTypes.NameIdentifier);
 
-            //ShoppingCartViewModel = new ShoppingCartViewModel()
-            //{
-            //    ListCart = await _shoppingCartService.GetAllAsync(u => u.ApplicationUserId == claim.Value, "Product")
-            //};
-            //foreach (var cart in ShoppingCartViewModel.ListCart)
-            //{
-            //    cart.Price = GetPriceBasedOnQuantity(cart.Count, cart.Product.Price, cart.Product.Price50, cart.Product.Price100);
-            //    ShoppingCartViewModel.CartTotal += (cart.Price * cart.Count);
-            //}
+            ShoppingCartViewModel = new ShoppingCartViewModel()
+            {
+                ListCart = await _shoppingCartService.GetAllAsync(u => u.ApplicationUserId == claim.Value, "Product"),
+                OrderHeader = new OrderHeader()
+            };
 
-            return View();
+            ShoppingCartViewModel.OrderHeader.ApplicationUser = await _userService.GetByIdAsync(x => x.Id == claim.Value);
+
+            ShoppingCartViewModel.OrderHeader.Name = ShoppingCartViewModel.OrderHeader.ApplicationUser.Name;
+            ShoppingCartViewModel.OrderHeader.PhoneNumber = ShoppingCartViewModel.OrderHeader.ApplicationUser.PhoneNumber;
+            ShoppingCartViewModel.OrderHeader.StreetAddress = ShoppingCartViewModel.OrderHeader.ApplicationUser.StreetAddress;
+            ShoppingCartViewModel.OrderHeader.City = ShoppingCartViewModel.OrderHeader.ApplicationUser.City;
+            ShoppingCartViewModel.OrderHeader.State = ShoppingCartViewModel.OrderHeader.ApplicationUser.State;
+            ShoppingCartViewModel.OrderHeader.PostalCode = ShoppingCartViewModel.OrderHeader.ApplicationUser.PostalCode;
+
+
+            foreach (var cart in ShoppingCartViewModel.ListCart)
+            {
+                cart.Price = GetPriceBasedOnQuantity(cart.Count, cart.Product.Price, cart.Product.Price50, cart.Product.Price100);
+                ShoppingCartViewModel.OrderHeader.OrderTotal += (cart.Price * cart.Count);
+            }
+
+            return View(ShoppingCartViewModel);
         }
 
         public async Task<IActionResult> Plus(int cartId)
