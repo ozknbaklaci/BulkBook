@@ -33,7 +33,7 @@ namespace BulkyBook.DataAccess.Repository
                 {
                     productFromDb.ImageUrl = product.ImageUrl;
                 }
-
+                
                 _applicationDbContext.Update(productFromDb);
                 await _applicationDbContext.SaveChangesAsync();
             }

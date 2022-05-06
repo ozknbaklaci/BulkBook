@@ -72,7 +72,7 @@ namespace BulkyBookWeb.Areas.Admin.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Upsert(ProductViewModel? productViewModel, IFormFile file)
+        public async Task<IActionResult> Upsert(ProductViewModel productViewModel, IFormFile? file)
         {
             if (ModelState.IsValid)
             {
@@ -109,7 +109,7 @@ namespace BulkyBookWeb.Areas.Admin.Controllers
                 }
                 else
                 {
-                    await _productRepository.UpdateAsync(productViewModel.Product);
+                    await _productRepository.UpdateProductAsync(productViewModel.Product);
                     TempData["success"] = "Product updated successfully";
                 }
 
