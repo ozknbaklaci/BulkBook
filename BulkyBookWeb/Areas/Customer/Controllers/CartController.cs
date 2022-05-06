@@ -79,35 +79,34 @@ namespace BulkyBookWeb.Areas.Customer.Controllers
         }
 
         [HttpPost]
-        [ActionName("Summary")]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> SummaryPost()
+        public async Task<IActionResult> Summary(ShoppingCartViewModel shoppingCartViewModel)
         {
             var claimsIdentity = (ClaimsIdentity)User.Identity;
             var claim = claimsIdentity?.FindFirst(ClaimTypes.NameIdentifier);
 
-            ShoppingCartViewModel.ListCart = await _shoppingCartService.GetAllAsync(u => u.ApplicationUserId == claim.Value, "Product");
+            shoppingCartViewModel.ListCart = await _shoppingCartService.GetAllAsync(u => u.ApplicationUserId == claim.Value, "Product");
 
-            ShoppingCartViewModel.OrderHeader.PaymentStatus = SD.PaymentStatusPending;
-            ShoppingCartViewModel.OrderHeader.OrderStatus = SD.PaymentStatusPending;
-            ShoppingCartViewModel.OrderHeader.OrderDate = DateTime.Now;
-            ShoppingCartViewModel.OrderHeader.ApplicationUserId = claim.Value;
+            shoppingCartViewModel.OrderHeader.PaymentStatus = SD.PaymentStatusPending;
+            shoppingCartViewModel.OrderHeader.OrderStatus = SD.PaymentStatusPending;
+            shoppingCartViewModel.OrderHeader.OrderDate = DateTime.Now;
+            shoppingCartViewModel.OrderHeader.ApplicationUserId = claim.Value;
 
-            foreach (var cart in ShoppingCartViewModel.ListCart)
+            foreach (var cart in shoppingCartViewModel.ListCart)
             {
                 cart.Price = GetPriceBasedOnQuantity(cart.Count, cart.Product.Price, cart.Product.Price50, cart.Product.Price100);
-                ShoppingCartViewModel.OrderHeader.OrderTotal += (cart.Price * cart.Count);
+                shoppingCartViewModel.OrderHeader.OrderTotal += (cart.Price * cart.Count);
             }
 
-            await _orderHeaderService.InsertAsync(ShoppingCartViewModel.OrderHeader);
+            await _orderHeaderService.InsertAsync(shoppingCartViewModel.OrderHeader);
 
 
-            foreach (var cart in ShoppingCartViewModel.ListCart)
+            foreach (var cart in shoppingCartViewModel.ListCart)
             {
                 OrderDetail orderDetail = new OrderDetail
                 {
                     ProductId = cart.ProductId,
-                    OrderId = ShoppingCartViewModel.OrderHeader.Id,
+                    OrderId = shoppingCartViewModel.OrderHeader.Id,
                     Price = cart.Price,
                     Count = cart.Count
                 };
@@ -115,7 +114,7 @@ namespace BulkyBookWeb.Areas.Customer.Controllers
                 await _orderDetailService.InsertAsync(orderDetail);
             }
 
-            await _shoppingCartService.DeleteRangeAsync(ShoppingCartViewModel.ListCart);
+            await _shoppingCartService.DeleteRangeAsync(shoppingCartViewModel.ListCart);
 
             return RedirectToAction("Index", "Home");
         }
