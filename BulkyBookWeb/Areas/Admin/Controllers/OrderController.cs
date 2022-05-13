@@ -6,6 +6,7 @@ using BulkyBook.Utility;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Stripe;
+using Stripe.Checkout;
 
 namespace BulkyBookWeb.Areas.Admin.Controllers
 {
@@ -41,7 +42,76 @@ namespace BulkyBookWeb.Areas.Admin.Controllers
             };
 
             return View(OrderViewModel);
+        }
 
+        [ActionName("Details")]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Details_Pay_Now()
+        {
+            OrderViewModel.OrderHeader =
+                await _orderHeaderRepository.GetByIdAsync(x => x.Id == OrderViewModel.OrderHeader.Id, "ApplicationUser");
+            OrderViewModel.OrderDetail =
+                await _orderDetailRepository.GetAllAsync(x => x.OrderId == OrderViewModel.OrderHeader.Id, "Product");
+
+            #region Stripe Payment
+
+            var host = "https://localhost:7193";
+            var options = new SessionCreateOptions
+            {
+                LineItems = new List<SessionLineItemOptions>(),
+                Mode = "payment",
+                SuccessUrl = $"{host}/Admin/Order/PaymentConfirmation?orderHeaderId={OrderViewModel.OrderHeader.Id}",
+                CancelUrl = $"{host}/Admin/Order/Details?orderId={OrderViewModel.OrderHeader.Id}"
+            };
+
+            foreach (var item in OrderViewModel.OrderDetail)
+            {
+                var sessionLineItemOptions = new SessionLineItemOptions
+                {
+                    PriceData = new SessionLineItemPriceDataOptions
+                    {
+                        UnitAmount = (long)(item.Price * 100), // 20.00 -> 2000
+                        Currency = "usd",
+                        ProductData = new SessionLineItemPriceDataProductDataOptions
+                        {
+                            Name = item.Product.Title
+                        },
+                    },
+                    Quantity = item.Count
+                };
+
+                options.LineItems.Add(sessionLineItemOptions);
+            }
+
+            var service = new SessionService();
+            Session session = await service.CreateAsync(options);
+
+            await _orderHeaderRepository.UpdateStripePaymentId(OrderViewModel.OrderHeader.Id, session.Id,
+                session.PaymentIntentId);
+
+            Response.Headers.Add("Location", session.Url);
+            return new StatusCodeResult(303);
+
+            #endregion
+        }
+
+        public async Task<IActionResult> PaymentConfirmation(int orderHeaderId)
+        {
+            OrderHeader orderHeader = await _orderHeaderRepository.GetByIdAsync(x => x.Id == orderHeaderId);
+            if (orderHeader.PaymentStatus == SD.PaymentStatusDelayedPayment)
+            {
+                var service = new SessionService();
+                Session session = service.Get(orderHeader.SessionId);
+
+                //check the stripe status
+                if (session.PaymentStatus.ToLower() == "paid")
+                {
+                    await _orderHeaderRepository.UpdateStatus(orderHeaderId, orderHeader.OrderStatus, SD.PaymentStatusApproved);
+                }
+            }
+
+            return View(orderHeaderId);
         }
 
         [HttpPost]

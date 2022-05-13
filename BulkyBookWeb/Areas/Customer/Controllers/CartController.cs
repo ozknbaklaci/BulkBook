@@ -13,10 +13,10 @@ namespace BulkyBookWeb.Areas.Customer.Controllers
     [Authorize]
     public class CartController : Controller
     {
-        private readonly IShoppingCartRepository _shoppingCartService;
-        private readonly IApplicationUserRepository _userService;
-        private readonly IOrderHeaderRepository _orderHeaderService;
-        private readonly IOrderDetailRepository _orderDetailService;
+        private readonly IShoppingCartRepository _shoppingCartRepository;
+        private readonly IApplicationUserRepository _applicationUserRepository;
+        private readonly IOrderHeaderRepository _orderHeaderRepository;
+        private readonly IOrderDetailRepository _orderDetailRepository;
         public ShoppingCartViewModel ShoppingCartViewModel { get; set; }
 
         public CartController(IShoppingCartRepository shoppingCartService,
@@ -24,10 +24,10 @@ namespace BulkyBookWeb.Areas.Customer.Controllers
             IOrderHeaderRepository orderHeaderService,
             IOrderDetailRepository orderDetailService)
         {
-            _shoppingCartService = shoppingCartService;
-            _userService = userService;
-            _orderHeaderService = orderHeaderService;
-            _orderDetailService = orderDetailService;
+            _shoppingCartRepository = shoppingCartService;
+            _applicationUserRepository = userService;
+            _orderHeaderRepository = orderHeaderService;
+            _orderDetailRepository = orderDetailService;
         }
 
         public async Task<IActionResult> Index()
@@ -37,7 +37,7 @@ namespace BulkyBookWeb.Areas.Customer.Controllers
 
             ShoppingCartViewModel = new ShoppingCartViewModel()
             {
-                ListCart = await _shoppingCartService.GetAllAsync(u => u.ApplicationUserId == claim.Value, "Product"),
+                ListCart = await _shoppingCartRepository.GetAllAsync(u => u.ApplicationUserId == claim.Value, "Product"),
                 OrderHeader = new OrderHeader()
             };
             foreach (var cart in ShoppingCartViewModel.ListCart)
@@ -56,11 +56,11 @@ namespace BulkyBookWeb.Areas.Customer.Controllers
 
             ShoppingCartViewModel = new ShoppingCartViewModel()
             {
-                ListCart = await _shoppingCartService.GetAllAsync(u => u.ApplicationUserId == claim.Value, "Product"),
+                ListCart = await _shoppingCartRepository.GetAllAsync(u => u.ApplicationUserId == claim.Value, "Product"),
                 OrderHeader = new OrderHeader()
             };
 
-            ShoppingCartViewModel.OrderHeader.ApplicationUser = await _userService.GetByIdAsync(x => x.Id == claim.Value);
+            ShoppingCartViewModel.OrderHeader.ApplicationUser = await _applicationUserRepository.GetByIdAsync(x => x.Id == claim.Value);
 
             ShoppingCartViewModel.OrderHeader.Name = ShoppingCartViewModel.OrderHeader.ApplicationUser.Name;
             ShoppingCartViewModel.OrderHeader.PhoneNumber = ShoppingCartViewModel.OrderHeader.ApplicationUser.PhoneNumber;
@@ -86,7 +86,7 @@ namespace BulkyBookWeb.Areas.Customer.Controllers
             var claimsIdentity = (ClaimsIdentity)User.Identity;
             var claim = claimsIdentity?.FindFirst(ClaimTypes.NameIdentifier);
 
-            shoppingCartViewModel.ListCart = await _shoppingCartService.GetAllAsync(u => u.ApplicationUserId == claim.Value, "Product");
+            shoppingCartViewModel.ListCart = await _shoppingCartRepository.GetAllAsync(u => u.ApplicationUserId == claim.Value, "Product");
 
             shoppingCartViewModel.OrderHeader.OrderDate = DateTime.Now;
             shoppingCartViewModel.OrderHeader.ApplicationUserId = claim.Value;
@@ -97,7 +97,7 @@ namespace BulkyBookWeb.Areas.Customer.Controllers
                 shoppingCartViewModel.OrderHeader.OrderTotal += (cart.Price * cart.Count);
             }
 
-            ApplicationUser applicationUser = await _userService.GetByIdAsync(x => x.Id == claim.Value);
+            ApplicationUser applicationUser = await _applicationUserRepository.GetByIdAsync(x => x.Id == claim.Value);
             if (applicationUser.CompanyId.GetValueOrDefault() == 0)
             {
                 shoppingCartViewModel.OrderHeader.PaymentStatus = SD.PaymentStatusPending;
@@ -109,7 +109,7 @@ namespace BulkyBookWeb.Areas.Customer.Controllers
                 shoppingCartViewModel.OrderHeader.OrderStatus = SD.StatusApproved;
             }
 
-            await _orderHeaderService.InsertAsync(shoppingCartViewModel.OrderHeader);
+            await _orderHeaderRepository.InsertAsync(shoppingCartViewModel.OrderHeader);
 
 
             foreach (var cart in shoppingCartViewModel.ListCart)
@@ -122,7 +122,7 @@ namespace BulkyBookWeb.Areas.Customer.Controllers
                     Count = cart.Count
                 };
 
-                await _orderDetailService.InsertAsync(orderDetail);
+                await _orderDetailRepository.InsertAsync(orderDetail);
             }
 
             #region Stripe Payment
@@ -158,15 +158,12 @@ namespace BulkyBookWeb.Areas.Customer.Controllers
                 }
 
                 var service = new SessionService();
-                Session session = service.Create(options);
+                Session session = await service.CreateAsync(options);
 
-                Response.Headers.Add("Location", session.Url);
-                shoppingCartViewModel.OrderHeader.SessionId = session.Id;
-                shoppingCartViewModel.OrderHeader.PaymentIntentId = session.PaymentIntentId;
-
-                await _orderHeaderService.UpdateStripePaymentId(shoppingCartViewModel.OrderHeader.Id, session.Id,
+                await _orderHeaderRepository.UpdateStripePaymentId(shoppingCartViewModel.OrderHeader.Id, session.Id,
                     session.PaymentIntentId);
 
+                Response.Headers.Add("Location", session.Url);
                 return new StatusCodeResult(303);
             }
 
@@ -177,7 +174,7 @@ namespace BulkyBookWeb.Areas.Customer.Controllers
 
         public async Task<IActionResult> OrderConfirmation(int id)
         {
-            OrderHeader orderHeader = await _orderHeaderService.GetByIdAsync(x => x.Id == id);
+            OrderHeader orderHeader = await _orderHeaderRepository.GetByIdAsync(x => x.Id == id);
             if (orderHeader.PaymentStatus != SD.PaymentStatusDelayedPayment)
             {
                 var service = new SessionService();
@@ -186,12 +183,12 @@ namespace BulkyBookWeb.Areas.Customer.Controllers
                 //check the stripe status
                 if (session.PaymentStatus.ToLower() == "paid")
                 {
-                    await _orderHeaderService.UpdateStatus(id, SD.StatusApproved, SD.PaymentStatusApproved);
+                    await _orderHeaderRepository.UpdateStatus(id, SD.StatusApproved, SD.PaymentStatusApproved);
                 }
             }
 
-            List<ShoppingCart> shoppingCarts = (await _shoppingCartService.GetAllAsync(x => x.ApplicationUserId == orderHeader.ApplicationUserId)).ToList();
-            await _shoppingCartService.DeleteRangeAsync(shoppingCarts);
+            List<ShoppingCart> shoppingCarts = (await _shoppingCartRepository.GetAllAsync(x => x.ApplicationUserId == orderHeader.ApplicationUserId)).ToList();
+            await _shoppingCartRepository.DeleteRangeAsync(shoppingCarts);
 
             return View(id);
         }
@@ -199,23 +196,23 @@ namespace BulkyBookWeb.Areas.Customer.Controllers
 
         public async Task<IActionResult> Plus(int cartId)
         {
-            var cart = await _shoppingCartService.GetByIdAsync(x => x.Id == cartId);
-            _shoppingCartService.IncrementCount(cart, 1);
-            await _shoppingCartService.UpdateAsync(cart);
+            var cart = await _shoppingCartRepository.GetByIdAsync(x => x.Id == cartId);
+            _shoppingCartRepository.IncrementCount(cart, 1);
+            await _shoppingCartRepository.UpdateAsync(cart);
 
             return RedirectToAction(nameof(Index));
         }
         public async Task<IActionResult> Minus(int cartId)
         {
-            var cart = await _shoppingCartService.GetByIdAsync(x => x.Id == cartId);
+            var cart = await _shoppingCartRepository.GetByIdAsync(x => x.Id == cartId);
             if (cart.Count <= 1)
             {
-                await _shoppingCartService.DeleteAsync(cart);
+                await _shoppingCartRepository.DeleteAsync(cart);
             }
             else
             {
-                _shoppingCartService.DecrementCount(cart, 1);
-                await _shoppingCartService.UpdateAsync(cart);
+                _shoppingCartRepository.DecrementCount(cart, 1);
+                await _shoppingCartRepository.UpdateAsync(cart);
             }
 
             return RedirectToAction(nameof(Index));
@@ -223,8 +220,8 @@ namespace BulkyBookWeb.Areas.Customer.Controllers
 
         public async Task<IActionResult> Remove(int cartId)
         {
-            var cart = await _shoppingCartService.GetByIdAsync(x => x.Id == cartId);
-            await _shoppingCartService.DeleteAsync(cart);
+            var cart = await _shoppingCartRepository.GetByIdAsync(x => x.Id == cartId);
+            await _shoppingCartRepository.DeleteAsync(cart);
 
             return RedirectToAction(nameof(Index));
         }
