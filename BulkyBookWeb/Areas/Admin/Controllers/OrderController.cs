@@ -5,6 +5,7 @@ using BulkyBook.Models.ViewModels;
 using BulkyBook.Utility;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Stripe;
 
 namespace BulkyBookWeb.Areas.Admin.Controllers
 {
@@ -44,6 +45,7 @@ namespace BulkyBookWeb.Areas.Admin.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = SD.Role_Admin + "," + SD.Role_Employee)]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> UpdateOrderDetail()
         {
@@ -71,6 +73,7 @@ namespace BulkyBookWeb.Areas.Admin.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = SD.Role_Admin + "," + SD.Role_Employee)]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> StartProcessing()
         {
@@ -81,19 +84,52 @@ namespace BulkyBookWeb.Areas.Admin.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = SD.Role_Admin + "," + SD.Role_Employee)]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> ShipOrder()
         {
-            var orderHeaderFromDb = await _orderHeaderRepository.GetByIdAsync(x => x.Id == OrderViewModel.OrderHeader.Id);
+            var orderHeader = await _orderHeaderRepository.GetByIdAsync(x => x.Id == OrderViewModel.OrderHeader.Id);
 
-            orderHeaderFromDb.TrackingNumber = OrderViewModel.OrderHeader.TrackingNumber;
-            orderHeaderFromDb.Carrier = OrderViewModel.OrderHeader.Carrier;
-            orderHeaderFromDb.OrderStatus = SD.StatusShipped;
-            orderHeaderFromDb.ShippingDate = DateTime.Now;
+            orderHeader.TrackingNumber = OrderViewModel.OrderHeader.TrackingNumber;
+            orderHeader.Carrier = OrderViewModel.OrderHeader.Carrier;
+            orderHeader.OrderStatus = SD.StatusShipped;
+            orderHeader.ShippingDate = DateTime.Now;
+            if (orderHeader.PaymentStatus == SD.PaymentStatusDelayedPayment)
+            {
+                orderHeader.PaymentDueDate = DateTime.Now.AddDays(30);
+            }
 
-            await _orderHeaderRepository.UpdateAsync(orderHeaderFromDb);
+            await _orderHeaderRepository.UpdateAsync(orderHeader);
             TempData["Success"] = "Order Shipped Successfully.";
 
+            return RedirectToAction("Details", "Order", new { orderId = OrderViewModel.OrderHeader.Id });
+        }
+
+        [HttpPost]
+        [Authorize(Roles = SD.Role_Admin + "," + SD.Role_Employee)]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CancelOrder()
+        {
+            var orderHeader = await _orderHeaderRepository.GetByIdAsync(x => x.Id == OrderViewModel.OrderHeader.Id);
+
+            if (orderHeader.PaymentStatus == SD.PaymentStatusApproved)
+            {
+                var options = new RefundCreateOptions
+                {
+                    Reason = RefundReasons.RequestedByCustomer,
+                    PaymentIntent = orderHeader.PaymentIntentId
+                };
+                var service = new RefundService();
+                Refund refund = await service.CreateAsync(options);
+
+                await _orderHeaderRepository.UpdateStatus(orderHeader.Id, SD.StatusCancelled, SD.StatusRefunded);
+            }
+            else
+            {
+                await _orderHeaderRepository.UpdateStatus(orderHeader.Id, SD.StatusCancelled, SD.StatusCancelled);
+            }
+
+            TempData["Success"] = "Order Cancelled Successfully.";
             return RedirectToAction("Details", "Order", new { orderId = OrderViewModel.OrderHeader.Id });
         }
 
