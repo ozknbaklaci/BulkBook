@@ -1,6 +1,7 @@
 ﻿using System.Security.Claims;
 using BulkyBook.DataAccess.Repository.IRepository;
 using BulkyBook.Models;
+using BulkyBook.Models.ViewModels;
 using BulkyBook.Utility;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -12,15 +13,61 @@ namespace BulkyBookWeb.Areas.Admin.Controllers
     public class OrderController : Controller
     {
         private readonly IOrderHeaderRepository _orderHeaderRepository;
+        private readonly IOrderDetailRepository _orderDetailRepository;
 
-        public OrderController(IOrderHeaderRepository orderHeaderRepository)
+        [BindProperty]
+        public OrderViewModel OrderViewModel { get; set; }
+
+        public OrderController(IOrderHeaderRepository orderHeaderRepository,
+            IOrderDetailRepository orderDetailRepository)
         {
             _orderHeaderRepository = orderHeaderRepository;
+            _orderDetailRepository = orderDetailRepository;
         }
 
-        public IActionResult Index()
+        public async Task<IActionResult> Index()
         {
+            await Task.CompletedTask;
             return View();
+        }
+
+        public async Task<IActionResult> Details(int orderId)
+        {
+            OrderViewModel = new OrderViewModel()
+            {
+                OrderHeader = await _orderHeaderRepository.GetByIdAsync(x => x.Id == orderId, "ApplicationUser"),
+                OrderDetail = await _orderDetailRepository.GetAllAsync(x => x.OrderId == orderId, "Product")
+            };
+
+            return View(OrderViewModel);
+
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdateOrderDetail()
+        {
+            var orderHeaderFromDb = await _orderHeaderRepository.GetByIdAsync(x => x.Id == OrderViewModel.OrderHeader.Id);
+            orderHeaderFromDb.Name = OrderViewModel.OrderHeader.Name;
+            orderHeaderFromDb.PhoneNumber = OrderViewModel.OrderHeader.PhoneNumber;
+            orderHeaderFromDb.StreetAddress = OrderViewModel.OrderHeader.StreetAddress;
+            orderHeaderFromDb.City = OrderViewModel.OrderHeader.City;
+            orderHeaderFromDb.State = OrderViewModel.OrderHeader.State;
+            orderHeaderFromDb.PostalCode = OrderViewModel.OrderHeader.PostalCode;
+
+            if (OrderViewModel.OrderHeader.Carrier != null)
+            {
+                orderHeaderFromDb.Carrier = OrderViewModel.OrderHeader.Carrier;
+            }
+            if (OrderViewModel.OrderHeader.TrackingNumber != null)
+            {
+                orderHeaderFromDb.TrackingNumber = OrderViewModel.OrderHeader.TrackingNumber;
+            }
+
+            await _orderHeaderRepository.UpdateAsync(orderHeaderFromDb);
+            TempData["Success"] = "Order Details Updated Successfully.";
+
+            return RedirectToAction("Details", "Order", new { orderId = orderHeaderFromDb.Id });
         }
 
         #region API CALLS

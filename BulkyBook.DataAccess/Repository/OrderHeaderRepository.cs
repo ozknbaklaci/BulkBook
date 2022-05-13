@@ -34,6 +34,7 @@ namespace BulkyBook.DataAccess.Repository
             var orderFromDb = await _applicationDbContext.OrderHeaders.FirstOrDefaultAsync(x => x.Id == id);
             if (orderFromDb != null)
             {
+                orderFromDb.PaymentDate = DateTime.Now;
                 orderFromDb.SessionId = sessionId;
                 orderFromDb.PaymentIntentId = paymentIntentId;
 
