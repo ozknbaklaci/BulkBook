@@ -70,6 +70,33 @@ namespace BulkyBookWeb.Areas.Admin.Controllers
             return RedirectToAction("Details", "Order", new { orderId = orderHeaderFromDb.Id });
         }
 
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> StartProcessing()
+        {
+            await _orderHeaderRepository.UpdateStatus(OrderViewModel.OrderHeader.Id, SD.StatusInProcess);
+            TempData["Success"] = "Order Status Updated Successfully.";
+
+            return RedirectToAction("Details", "Order", new { orderId = OrderViewModel.OrderHeader.Id });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ShipOrder()
+        {
+            var orderHeaderFromDb = await _orderHeaderRepository.GetByIdAsync(x => x.Id == OrderViewModel.OrderHeader.Id);
+
+            orderHeaderFromDb.TrackingNumber = OrderViewModel.OrderHeader.TrackingNumber;
+            orderHeaderFromDb.Carrier = OrderViewModel.OrderHeader.Carrier;
+            orderHeaderFromDb.OrderStatus = SD.StatusShipped;
+            orderHeaderFromDb.ShippingDate = DateTime.Now;
+
+            await _orderHeaderRepository.UpdateAsync(orderHeaderFromDb);
+            TempData["Success"] = "Order Shipped Successfully.";
+
+            return RedirectToAction("Details", "Order", new { orderId = OrderViewModel.OrderHeader.Id });
+        }
+
         #region API CALLS
 
         [HttpGet]
@@ -79,7 +106,6 @@ namespace BulkyBookWeb.Areas.Admin.Controllers
             if (User.IsInRole(SD.Role_Admin) || User.IsInRole(SD.Role_Employee))
             {
                 orderHeaders = await _orderHeaderRepository.GetAllAsync(includeProperties: "ApplicationUser");
-
             }
             else
             {
