@@ -31,6 +31,12 @@ builder.Services.AddScoped<IApplicationUserRepository, ApplicationUserRepository
 builder.Services.AddScoped<IOrderHeaderRepository, OrderHeaderRepository>();
 builder.Services.AddScoped<IOrderDetailRepository, OrderDetailRepository>();
 builder.Services.AddSingleton<IEmailSender, EmailSender>();
+builder.Services.AddAuthentication().AddFacebook(facebookOptions =>
+{
+    facebookOptions.AppId = "AppId";
+    facebookOptions.AppSecret = "AppSecret";
+});
+
 builder.Services.AddRazorPages().AddRazorRuntimeCompilation();
 
 builder.Services.ConfigureApplicationCookie(options =>
