@@ -192,6 +192,7 @@ namespace BulkyBookWeb.Areas.Customer.Controllers
             }
             await _emailSender.SendEmailAsync(orderHeader.ApplicationUser.Email, "New Order - Bulky Book", "<p>New Order Created.</p>");
             List<ShoppingCart> shoppingCarts = (await _shoppingCartRepository.GetAllAsync(x => x.ApplicationUserId == orderHeader.ApplicationUserId)).ToList();
+            HttpContext.Session.Clear();
             await _shoppingCartRepository.DeleteRangeAsync(shoppingCarts);
 
             return View(id);
@@ -211,6 +212,8 @@ namespace BulkyBookWeb.Areas.Customer.Controllers
             if (cart.Count <= 1)
             {
                 await _shoppingCartRepository.DeleteAsync(cart);
+                var count = (await _shoppingCartRepository.GetAllAsync(x => x.ApplicationUserId == cart.ApplicationUserId)).ToList().Count;
+                HttpContext.Session.SetInt32(SD.SessionCart, count);
             }
             else
             {
@@ -225,6 +228,9 @@ namespace BulkyBookWeb.Areas.Customer.Controllers
         {
             var cart = await _shoppingCartRepository.GetByIdAsync(x => x.Id == cartId);
             await _shoppingCartRepository.DeleteAsync(cart);
+
+            var count = (await _shoppingCartRepository.GetAllAsync(x => x.ApplicationUserId == cart.ApplicationUserId)).ToList().Count;
+            HttpContext.Session.SetInt32(SD.SessionCart, count);
 
             return RedirectToAction(nameof(Index));
         }
