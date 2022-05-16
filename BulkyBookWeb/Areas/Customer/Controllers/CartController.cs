@@ -4,6 +4,7 @@ using BulkyBook.Models;
 using BulkyBook.Models.ViewModels;
 using BulkyBook.Utility;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
 using Stripe.Checkout;
 
@@ -17,17 +18,20 @@ namespace BulkyBookWeb.Areas.Customer.Controllers
         private readonly IApplicationUserRepository _applicationUserRepository;
         private readonly IOrderHeaderRepository _orderHeaderRepository;
         private readonly IOrderDetailRepository _orderDetailRepository;
+        private readonly IEmailSender _emailSender;
         public ShoppingCartViewModel ShoppingCartViewModel { get; set; }
 
         public CartController(IShoppingCartRepository shoppingCartService,
             IApplicationUserRepository userService,
             IOrderHeaderRepository orderHeaderService,
-            IOrderDetailRepository orderDetailService)
+            IOrderDetailRepository orderDetailService,
+            IEmailSender emailSender)
         {
             _shoppingCartRepository = shoppingCartService;
             _applicationUserRepository = userService;
             _orderHeaderRepository = orderHeaderService;
             _orderDetailRepository = orderDetailService;
+            _emailSender = emailSender;
         }
 
         public async Task<IActionResult> Index()
@@ -174,7 +178,7 @@ namespace BulkyBookWeb.Areas.Customer.Controllers
 
         public async Task<IActionResult> OrderConfirmation(int id)
         {
-            OrderHeader orderHeader = await _orderHeaderRepository.GetByIdAsync(x => x.Id == id);
+            OrderHeader orderHeader = await _orderHeaderRepository.GetByIdAsync(x => x.Id == id, "ApplicationUser");
             if (orderHeader.PaymentStatus != SD.PaymentStatusDelayedPayment)
             {
                 var service = new SessionService();
@@ -186,13 +190,12 @@ namespace BulkyBookWeb.Areas.Customer.Controllers
                     await _orderHeaderRepository.UpdateStatus(id, SD.StatusApproved, SD.PaymentStatusApproved);
                 }
             }
-
+            await _emailSender.SendEmailAsync(orderHeader.ApplicationUser.Email, "New Order - Bulky Book", "<p>New Order Created.</p>");
             List<ShoppingCart> shoppingCarts = (await _shoppingCartRepository.GetAllAsync(x => x.ApplicationUserId == orderHeader.ApplicationUserId)).ToList();
             await _shoppingCartRepository.DeleteRangeAsync(shoppingCarts);
 
             return View(id);
         }
-
 
         public async Task<IActionResult> Plus(int cartId)
         {
