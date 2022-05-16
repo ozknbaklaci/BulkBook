@@ -2,6 +2,7 @@
 using System.Security.Claims;
 using BulkyBook.DataAccess.Repository.IRepository;
 using BulkyBook.Models;
+using BulkyBook.Utility;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -54,6 +55,7 @@ namespace BulkyBookWeb.Areas.Customer.Controllers
             if (cartFromDb == null)
             {
                 await _shoppingCartRepository.InsertAsync(shoppingCart);
+                HttpContext.Session.SetInt32(SD.SessionCart, (await _shoppingCartRepository.GetAllAsync(x => x.ApplicationUserId == claim.Value)).ToList().Count);
             }
             else
             {
