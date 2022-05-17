@@ -56,26 +56,32 @@
                     </div>
                     <hr />
                 }
-                <div class="row">
-                    <div class="col-12 col-md-6 offset-md-6 col-lg-4 offset-lg-8 pr-4">
-                        <ul class="list-group">
-                            <li class="list-group-item d-flex justify-content-between bg-light">
-                                <span class="text-info"> Total (USD)</span>
-                                <strong class="text-info">@Model.OrderHeader.OrderTotal.ToString("c")</strong>
-                            </li>
-                        </ul>
+                @if (Model.ListCart.Any())
+                {
+                    <div class="row">
+                        <div class="col-12 col-md-6 offset-md-6 col-lg-4 offset-lg-8 pr-4">
+                            <ul class="list-group">
+                                <li class="list-group-item d-flex justify-content-between bg-light">
+                                    <span class="text-info"> Total (USD)</span>
+                                    <strong class="text-info">@Model.OrderHeader.OrderTotal.ToString("c")</strong>
+                                </li>
+                            </ul>
+                        </div>
                     </div>
-                </div>
+                }
+
 
             </div>
-
-            <div class="card-footer">
-                <div class="card-footer row">
-                    <div class="col-sm-12 col-lg-4 col-md-6 offset-lg-8 offset-md-6 ">
-                        <a asp-action="Summary" class="btn btn-success form-control">Summary</a>
+            @if (Model.ListCart.Any())
+            {
+                <div class="card-footer">
+                    <div class="card-footer row">
+                        <div class="col-sm-12 col-lg-4 col-md-6 offset-lg-8 offset-md-6 ">
+                            <a asp-action="Summary" class="btn btn-success form-control">Summary</a>
+                        </div>
                     </div>
                 </div>
-            </div>
+            }
         </div>
     </div>
 </form>
